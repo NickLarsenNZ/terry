@@ -1,0 +1,15 @@
+responders:
+- when:
+    http:
+      method: GET
+      path: /feeds
+  then:
+    http:
+      status: 200
+    headers:
+      Content-Type: application/json
+    body: |
+      [
+          {"provider_name": "aws", "atom_url": "https://github.com/terraform-providers/terraform-provider-aws/releases.atom"},
+          {"provider_name": "null", "atom_url": "https://github.com/terraform-providers/terraform-provider-null/releases.atom"}
+      ]
