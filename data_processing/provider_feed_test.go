@@ -76,3 +76,26 @@ func TestLastVersion(t *testing.T) {
 		t.Fatalf("expected %v, got %v", ErrItemNotFound, err)
 	}
 }
+
+func TestCache(t *testing.T) {
+	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
+
+	service := NewProviderFeedService(test_table, mock_dynamodb)
+
+	// test first call which hits dynamodb
+	_, err := service.LastVersion(test_item_key_value)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// subsequent call for the same key ,which should be returned from cache
+	_, err = service.LastVersion(test_item_key_value)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Internal detail, but only way to ensure the cache was hit
+	if service.cache_miss != 1 {
+		t.Fatal("cache was not used")
+	}
+}
