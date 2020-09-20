@@ -1,13 +1,15 @@
 package data_processing
 
 import (
-	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	dynamock "github.com/gusaul/go-dynamock"
+	mockhttp "github.com/nicklarsennz/mockhttp"
+	"github.com/pkg/errors"
 )
 
 var test_table = "example"
@@ -16,10 +18,12 @@ var test_item_record = struct {
 	etag    string
 	version string
 }{etag: "33a64df551425fcc55e4d42a148795d9f25f89d4", version: "v1.6.5"}
+var test_atom_url = "https://github.com/terraform-providers/terraform-provider-aws/releases.atom"
 var mock_dynamodb dynamodbiface.DynamoDBAPI
 var mock *dynamock.DynaMock
 var expectedKey map[string]*dynamodb.AttributeValue
 var expectedReturn dynamodb.GetItemOutput
+var mockHttpClient *http.Client
 
 func init() {
 	mock_dynamodb, mock = dynamock.New()
@@ -37,12 +41,18 @@ func init() {
 			"Version":  {S: aws.String(test_item_record.version)},
 		},
 	}
+
+	// Instantiate a new http.Client
+	mockHttpClient, _ = mockhttp.NewClient("./responders.yml")
+	// if err != nil {
+	// 	panic(errors.Wrap(err, "mockhttp.NewClient()").Error())
+	// }
 }
 
 func TestLastEtag(t *testing.T) {
 	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
 
-	service := NewProviderFeedService(test_table, mock_dynamodb)
+	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 
 	// test where we do have etags
 	if actual_etag, err := service.LastETag(test_item_key_value); actual_etag != test_item_record.etag {
@@ -61,7 +71,7 @@ func TestLastEtag(t *testing.T) {
 func TestLastVersion(t *testing.T) {
 	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
 
-	service := NewProviderFeedService(test_table, mock_dynamodb)
+	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 
 	// test where we do have versions
 	if actual_version, err := service.LastVersion(test_item_key_value); actual_version != test_item_record.version {
@@ -80,7 +90,7 @@ func TestLastVersion(t *testing.T) {
 func TestCache(t *testing.T) {
 	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
 
-	service := NewProviderFeedService(test_table, mock_dynamodb)
+	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 
 	// test first call which hits dynamodb
 	_, err := service.LastVersion(test_item_key_value)
@@ -98,4 +108,145 @@ func TestCache(t *testing.T) {
 	if service.cache_miss != 1 {
 		t.Fatal("cache was not used")
 	}
+}
+
+func TestCheckForNewVersions(t *testing.T) {
+	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
+
+	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
+	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
+		ProviderName: test_item_key_value,
+		AtomURL:      test_atom_url,
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expected_len := 4
+	actual_len := len(provider_versions)
+	if actual_len != expected_len {
+		t.Fatalf("expected %d, got %d", expected_len, actual_len)
+	}
+
+	expected_latest_version := "v3.7.0"
+	actual_latest_version := provider_versions[0].Version
+	if actual_latest_version != expected_latest_version {
+		t.Fatalf("expected %s, got %s", expected_latest_version, actual_latest_version)
+	}
+
+}
+
+func TestCheckForNewVersionsNoEtag(t *testing.T) {
+	// ETag: W/"3fd5cf340c5e30202eca209855b7544a"
+	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(dynamodb.GetItemOutput{
+		Item: map[string]*dynamodb.AttributeValue{
+			"Provider": {S: aws.String(test_item_key_value)},
+			"Version":  {S: aws.String(test_item_record.version)},
+		},
+	})
+
+	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
+	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
+		ProviderName: test_item_key_value,
+		AtomURL:      test_atom_url,
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expected_len := 4
+	actual_len := len(provider_versions)
+	if actual_len != expected_len {
+		t.Fatalf("expected %d, got %d", expected_len, actual_len)
+	}
+}
+
+func TestCheckForNewVersionsSameEtag(t *testing.T) {
+	// ETag: W/"3fd5cf340c5e30202eca209855b7544a"
+	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(dynamodb.GetItemOutput{
+		Item: map[string]*dynamodb.AttributeValue{
+			"Provider": {S: aws.String(test_item_key_value)},
+			"ETag":     {S: aws.String(`W/"3fd5cf340c5e30202eca209855b7544a"`)},
+			"Version":  {S: aws.String(test_item_record.version)},
+		},
+	})
+
+	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
+	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
+		ProviderName: test_item_key_value,
+		AtomURL:      test_atom_url,
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expected_len := 0
+	actual_len := len(provider_versions)
+	if actual_len != expected_len {
+		t.Fatalf("expected %d, got %d", expected_len, actual_len)
+	}
+}
+
+func TestCheckForNewVersionsSinceTwoVersionsAgo(t *testing.T) {
+	// since v3.5.0
+	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(dynamodb.GetItemOutput{
+		Item: map[string]*dynamodb.AttributeValue{
+			"Provider": {S: aws.String(test_item_key_value)},
+			"ETag":     {S: aws.String(test_item_record.etag)},
+			"Version":  {S: aws.String(`v3.5.0`)},
+		},
+	})
+
+	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
+	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
+		ProviderName: test_item_key_value,
+		AtomURL:      test_atom_url,
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expected_len := 2
+	actual_len := len(provider_versions)
+	if actual_len != expected_len {
+		t.Fatalf("expected %d, got %d", expected_len, actual_len)
+	}
+
+	expected_latest_version := "v3.7.0"
+	actual_latest_version := provider_versions[0].Version
+	if actual_latest_version != expected_latest_version {
+		t.Fatalf("expected %s, got %s", expected_latest_version, actual_latest_version)
+	}
+
+}
+
+func TestCheckForNewVersionsNoVersions(t *testing.T) {
+	// since v3.5.0
+	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(dynamodb.GetItemOutput{
+		Item: map[string]*dynamodb.AttributeValue{
+			"Provider": {S: aws.String(test_item_key_value)},
+		},
+	})
+
+	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
+	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
+		ProviderName: test_item_key_value,
+		AtomURL:      test_atom_url,
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expected_len := 4
+	actual_len := len(provider_versions)
+	if actual_len != expected_len {
+		t.Fatalf("expected %d, got %d", expected_len, actual_len)
+	}
+
+	expected_latest_version := "v3.7.0"
+	actual_latest_version := provider_versions[0].Version
+	if actual_latest_version != expected_latest_version {
+		t.Fatalf("expected %s, got %s", expected_latest_version, actual_latest_version)
+	}
+
 }

@@ -13,3 +13,81 @@ responders:
           {"provider_name": "aws", "atom_url": "https://github.com/terraform-providers/terraform-provider-aws/releases.atom"},
           {"provider_name": "null", "atom_url": "https://github.com/terraform-providers/terraform-provider-null/releases.atom"}
       ]
+
+- when:
+    http:
+      method: HEAD
+      path: /terraform-providers/terraform-provider-aws/releases.atom
+  then:
+    http:
+      status: 200
+    headers:
+      ETag: W/"3fd5cf340c5e30202eca209855b7544a"
+
+- when:
+    http:
+      method: GET
+      path: /terraform-providers/terraform-provider-aws/releases.atom
+  then:
+    http:
+      status: 200
+    headers:
+      ETag: W/"3fd5cf340c5e30202eca209855b7544a"
+      Content-Type: application/atom+xml; charset=utf-8
+      Date: Sun, 20 Sep 2020 11:29:32 GMT
+      Cache-Control: max-age=0, private, must-revalidate
+    body: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-US">
+        <id>tag:github.com,2008:https://github.com/terraform-providers/terraform-provider-aws/releases</id>
+        <link type="text/html" rel="alternate" href="https://github.com/terraform-providers/terraform-provider-aws/releases"/>
+        <link type="application/atom+xml" rel="self" href="https://github.com/terraform-providers/terraform-provider-aws/releases.atom"/>
+        <title>Release notes from terraform-provider-aws</title>
+        <updated>2020-09-18T11:02:17+12:00</updated>
+        <entry>
+          <id>tag:github.com,2008:Repository/93444615/v3.7.0</id>
+          <updated>2020-09-18T11:27:02+12:00</updated>
+          <link rel="alternate" type="text/html" href="https://github.com/terraform-providers/terraform-provider-aws/releases/tag/v3.7.0"/>
+          <title>v3.7.0</title>
+          <content type="html">...</content>
+          <author>
+            <name>bflad</name>
+          </author>
+          <media:thumbnail height="30" width="30" url="https://avatars3.githubusercontent.com/u/189114?s=60&amp;v=4"/>
+        </entry>
+        <entry>
+          <id>tag:github.com,2008:Repository/93444615/v3.6.0</id>
+          <updated>2020-09-11T12:21:22+12:00</updated>
+          <link rel="alternate" type="text/html" href="https://github.com/terraform-providers/terraform-provider-aws/releases/tag/v3.6.0"/>
+          <title>v3.6.0</title>
+          <content type="html">...</content>
+          <author>
+            <name>bflad</name>
+          </author>
+          <media:thumbnail height="30" width="30" url="https://avatars3.githubusercontent.com/u/189114?s=60&amp;v=4"/>
+        </entry>
+        <entry>
+          <id>tag:github.com,2008:Repository/93444615/v3.5.0</id>
+          <updated>2020-09-04T07:23:41+12:00</updated>
+          <link rel="alternate" type="text/html" href="https://github.com/terraform-providers/terraform-provider-aws/releases/tag/v3.5.0"/>
+          <title>v3.5.0</title>
+          <content type="html">...</content>
+          <author>
+            <name>bflad</name>
+          </author>
+          <media:thumbnail height="30" width="30" url="https://avatars3.githubusercontent.com/u/189114?s=60&amp;v=4"/>
+        </entry>
+        <entry>
+          <id>tag:github.com,2008:Repository/93444615/v3.4.0</id>
+          <updated>2020-08-28T10:37:54+12:00</updated>
+          <link rel="alternate" type="text/html" href="https://github.com/terraform-providers/terraform-provider-aws/releases/tag/v3.4.0"/>
+          <title>v3.4.0</title>
+          <content type="html">...</content>
+          <author>
+            <name>anGie44</name>
+          </author>
+          <media:thumbnail height="30" width="30" url="https://avatars2.githubusercontent.com/u/13805595?s=60&amp;v=4"/>
+        </entry>
+      </feed>
+
+
