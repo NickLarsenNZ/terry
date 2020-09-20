@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	ErrETagNotFound = errors.New("ETag Not Found")
+	ErrItemNotFound = errors.New("Item Not Found")
 )
 
 type ProviderFeedService struct {
@@ -23,11 +23,29 @@ func NewProviderFeedService(table_name string, dynamodb dynamodbiface.DynamoDBAP
 	}
 }
 
+func (s *ProviderFeedService) LastVersion(provider_name string) (string, error) {
+	item, err := s.getItem(provider_name)
+	if err != nil {
+		return "", err
+	}
+
+	return *item["Version"].S, nil
+}
+
 func (s *ProviderFeedService) LastETag(provider_name string) (string, error) {
+	item, err := s.getItem(provider_name)
+	if err != nil {
+		return "", err
+	}
+
+	return *item["ETag"].S, nil
+}
+
+func (s *ProviderFeedService) getItem(key string) (map[string]*dynamodb.AttributeValue, error) {
 	params := &dynamodb.GetItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
 			"Provider": {
-				S: aws.String(provider_name),
+				S: aws.String(key),
 			},
 		},
 		TableName: aws.String(s.table),
@@ -35,10 +53,8 @@ func (s *ProviderFeedService) LastETag(provider_name string) (string, error) {
 
 	resp, err := s.dynamodb.GetItem(params)
 	if err != nil {
-		return "", ErrETagNotFound
+		return nil, errors.Wrap(ErrItemNotFound, err.Error())
 	}
 
-	lastETag := resp.Item["ETag"].S
-
-	return *lastETag, nil
+	return resp.Item, nil
 }
