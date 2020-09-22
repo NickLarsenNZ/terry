@@ -7,10 +7,15 @@ env:
 
 tasks:
   test:
+    env:
+      GOOS: ""
+      GOARCH: ""
+      CGO_ENABLED: ""
     cmds:
       - go test data_processing
     sources:
       - ./**/*.go
+
   build:
     cmds:
       - task: build_lambda_feeds
