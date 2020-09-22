@@ -1,5 +1,10 @@
 version: '3'
 
+env:
+  GOOS: linux
+  GOARCH: amd64
+  CGO_ENABLED: "0"
+
 tasks:
   test:
     cmds:
@@ -8,7 +13,13 @@ tasks:
       - ./**/*.go
   build:
     cmds:
+      - task: build_lambda_feeds
       - task: build_lambda_feed
+
+  build_lambda_feeds:
+    cmds:
+      - go build -v -ldflags="-s -w" -o terraform/build/feeds ./cmd/lambda/get_atom_feeds/
+      - cd terraform/build/ && zip -r9 feeds.zip feeds
 
   build_lambda_feed:
     cmds:
