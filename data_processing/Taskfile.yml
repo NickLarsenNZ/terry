@@ -6,3 +6,12 @@ tasks:
       - go test data_processing
     sources:
       - ./**/*.go
+  build:
+    cmds:
+      - task: build_lambda_feed
+
+  build_lambda_feed:
+    cmds:
+      - go build -v -ldflags="-s -w" -o terraform/build/feed ./cmd/lambda/get_atom_feed/
+      - cd terraform/build/ && zip -r9 feed.zip feed
+
