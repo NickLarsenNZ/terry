@@ -1,6 +1,7 @@
 package data_processing
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -44,13 +45,14 @@ type ProviderVersion struct {
 
 func (s *ProviderFeedService) CheckForNewVersions(input ProviderAtomFeed) ([]ProviderVersion, error) {
 	var newVersions []ProviderVersion
+	var lastETag string
 
 	lastVersion, err := s.LastVersion(input.ProviderName)
 	if err != nil && !errors.Is(err, ErrItemNotFound) {
 		return nil, err
 	} else {
 		// Otherwise, get the last seen ETag, and check (HEAD) if there are any updates to the feed
-		lastETag, err := s.LastETag(input.ProviderName)
+		lastETag, err = s.LastETag(input.ProviderName)
 		if err != nil && !errors.Is(err, ErrItemNotFound) {
 			return nil, err
 		} else {
@@ -82,10 +84,19 @@ func (s *ProviderFeedService) CheckForNewVersions(input ProviderAtomFeed) ([]Pro
 	newVersion := versions[0]
 
 	// Update the last ETag and Version in the DB
-	_ = newETag
-	_ = newVersion
+	_, err = s.dynamodb.PutItem(&dynamodb.PutItemInput{
+		TableName: &s.table,
+		Item: map[string]*dynamodb.AttributeValue{
+			"Provider": {S: aws.String(input.ProviderName)},
+			"ETag":     {S: aws.String(newETag)},
+			"Version":  {S: aws.String(newVersion)},
+		},
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to Put/Update ETag (%s -> %s) or Version (%s -> %s) for `%s`", lastETag, newETag, lastVersion, newVersion, input.ProviderName)
+	}
+	fmt.Printf("updated last known `%s` version: %s -> %s\n", input.ProviderName, lastVersion, newVersion)
 
-	// return
 	for _, version := range versions {
 		newVersions = append(newVersions, ProviderVersion{
 			Provider: input.ProviderName,

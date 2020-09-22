@@ -51,6 +51,7 @@ func init() {
 
 func TestLastEtag(t *testing.T) {
 	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
+	mock.ExpectPutItem().ToTable(test_table)
 
 	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 
@@ -70,6 +71,7 @@ func TestLastEtag(t *testing.T) {
 
 func TestLastVersion(t *testing.T) {
 	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
+	mock.ExpectPutItem().ToTable(test_table)
 
 	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 
@@ -89,6 +91,7 @@ func TestLastVersion(t *testing.T) {
 
 func TestCache(t *testing.T) {
 	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
+	mock.ExpectPutItem().ToTable(test_table)
 
 	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 
@@ -112,6 +115,7 @@ func TestCache(t *testing.T) {
 
 func TestCheckForNewVersions(t *testing.T) {
 	mock.ExpectGetItem().ToTable(test_table).WithKeys(expectedKey).WillReturns(expectedReturn)
+	mock.ExpectPutItem().ToTable(test_table)
 
 	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
@@ -144,6 +148,7 @@ func TestCheckForNewVersionsNoEtag(t *testing.T) {
 			"Version":  {S: aws.String(test_item_record.version)},
 		},
 	})
+	mock.ExpectPutItem().ToTable(test_table)
 
 	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
@@ -170,6 +175,7 @@ func TestCheckForNewVersionsSameEtag(t *testing.T) {
 			"Version":  {S: aws.String(test_item_record.version)},
 		},
 	})
+	mock.ExpectPutItem().ToTable(test_table)
 
 	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
@@ -196,6 +202,7 @@ func TestCheckForNewVersionsSinceTwoVersionsAgo(t *testing.T) {
 			"Version":  {S: aws.String(`v3.5.0`)},
 		},
 	})
+	mock.ExpectPutItem().ToTable(test_table)
 
 	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
@@ -227,6 +234,7 @@ func TestCheckForNewVersionsNoVersions(t *testing.T) {
 			"Provider": {S: aws.String(test_item_key_value)},
 		},
 	})
+	mock.ExpectPutItem().ToTable(test_table)
 
 	service := NewProviderFeedService(test_table, mock_dynamodb, mockHttpClient)
 	provider_versions, err := service.CheckForNewVersions(ProviderAtomFeed{
